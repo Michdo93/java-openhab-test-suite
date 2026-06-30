@@ -87,7 +87,8 @@ public class PersistenceTester {
     public boolean checkLastPersistedState(String serviceId, String itemName,
                                            String expectedState) {
         try {
-            Object raw = persistenceAPI.getItemPersistenceData(itemName, serviceId);
+            Object raw = persistenceAPI.getItemPersistenceData(
+                itemName, serviceId, null, null, null, null, null);
             JSONObject data = parseObject(raw);
             JSONArray  entries = data != null ? data.optJSONArray("data") : null;
             if (entries == null || entries.length() == 0) return false;
