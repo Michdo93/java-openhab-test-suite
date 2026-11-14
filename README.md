@@ -1,30 +1,28 @@
 # java-openhab-test-suite
 
-A Java testing library for validating openHAB installations. It mirrors the Python
-[openhab-test-suite](https://github.com/Michdo93/openhab-test-suite) with identical
-class and method names, powered by the
-[java-openhab-rest-client](https://github.com/Michdo93/java-openhab-rest-client).
+Tests for openHAB items, things, rules, links, persistence and sitemaps in Java. It mirrors
+[openhab-test-suite](https://github.com/Michdo93/openhab-test-suite) (Python) with the same classes,
+methods and parameters and is built on
+[java-openhab-rest-client](https://github.com/Michdo93/java-openhab-rest-client) 2.0.0.
+
+Every check and test returns `true` or `false` and explains failures on `System.err` – so the methods
+fit into JUnit assertions as well as into a quick pre-flight check before a long demo (a robot that
+drives through the smart home for ten minutes should not fail after five because an item is missing).
 
 ## Classes
 
 | Class | Description |
 |---|---|
-| `ItemTester` | Validates item types, sends commands/updates, verifies state via SSE, auto-resets |
-| `ThingTester` | Checks Thing status (ONLINE/OFFLINE/…), enables and disables Things |
-| `RuleTester` | Runs rules, enables/disables rules, checks status |
-| `ChannelTester` | Verifies item-channel links and orphaned links |
-| `PersistenceTester` | Checks item registration in persistence services and historical data |
-| `SitemapTester` | Verifies sitemap existence and item references |
-
-## Requirements
-
-- Java 11+
-- Maven 3.6+
-- Eclipse (recommended) with **m2e** plugin
+| `ItemTester` | item exists, type (also `Number:Temperature`), state, groups; command tests per item type with expected state via SSE and automatic reset |
+| `ThingTester` | thing status (ONLINE/OFFLINE/…), enable and disable things |
+| `RuleTester` | run, enable, disable rules, check status, rule sets an item |
+| `ChannelTester` | links between items and channels, orphaned links |
+| `PersistenceTester` | item persisted, data in a time range, last persisted state |
+| `SitemapTester` | sitemap exists, sitemap contains an item |
 
 ## Installation
 
-### Via JitPack (Maven)
+Java 11 or newer. Both libraries are served by [JitPack](https://jitpack.io):
 
 ```xml
 <repositories>
@@ -34,104 +32,116 @@ class and method names, powered by the
     </repository>
 </repositories>
 
-<dependency>
-    <groupId>com.github.Michdo93</groupId>
-    <artifactId>java-openhab-test-suite</artifactId>
-    <version>1.0.0</version>
-</dependency>
+<dependencies>
+    <dependency>
+        <groupId>com.github.Michdo93</groupId>
+        <artifactId>java-openhab-test-suite</artifactId>
+        <version>2.0.0</version>
+    </dependency>
+</dependencies>
 ```
 
-### In Eclipse
+java-openhab-rest-client 2.0.0 comes along as a dependency.
 
-1. **File → Import → Maven → Existing Maven Projects**
-2. Select the `java-openhab-test-suite` root folder
-3. Click **Finish** — Eclipse resolves all dependencies via m2e
+Gradle (Kotlin DSL):
 
-## Configuration
+```kotlin
+repositories { mavenCentral(); maven("https://jitpack.io") }
+dependencies { testImplementation("com.github.Michdo93:java-openhab-test-suite:2.0.0") }
+```
 
-All integration tests read connection settings from environment variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `OPENHAB_URL` | `http://127.0.0.1:8080` | openHAB base URL |
-| `OPENHAB_USER` | `openhab` | Username (Basic Auth) |
-| `OPENHAB_PASS` | `habopen` | Password |
-| `OPENHAB_THING_UID` | `astro:sun:local` | Thing UID for ThingTester tests |
-| `OPENHAB_RULE_UID` | `test_color-1` | Rule UID for RuleTester tests |
-| `OPENHAB_CHANNEL_ITEM` | `testSwitch` | Item name for ChannelTester tests |
-| `OPENHAB_CHANNEL_UID` | `astro:moon:local:phase#name` | Channel UID for ChannelTester tests |
-| `OPENHAB_PERSISTENCE_SERVICE` | `rrd4j` | Service ID for PersistenceTester tests |
-| `OPENHAB_PERSISTENCE_ITEM` | `testSwitch` | Item name for PersistenceTester tests |
-| `OPENHAB_SITEMAP` | `default` | Sitemap name for SitemapTester tests |
-| `OPENHAB_SITEMAP_ITEM` | `testSwitch` | Item expected in the sitemap |
-
-**In Eclipse** set these under **Run → Run Configurations → Environment**.
-
-## Usage
+## Example
 
 ```java
 import io.github.michdo93.openhab.OpenHABClient;
 import io.github.michdo93.openhab.testsuite.*;
+import java.util.List;
 
-OpenHABClient client = new OpenHABClient("http://127.0.0.1:8080", "openhab", "habopen");
+OpenHABClient client = new OpenHABClient("http://openhab:8080", null, null, System.getenv("OPENHAB_TOKEN"));
 
-// Item tests
 ItemTester items = new ItemTester(client);
-items.doesItemExist("testSwitch");                           // true/false
-items.checkItemIsType("testSwitch", "Switch");               // true/false
-items.testSwitch("testSwitch", "ON", "ON", 10);             // send + verify via SSE
-items.testDimmer("testDimmer", "50", "50", 10);
-items.testColor("testColor", "240,100,100", "240,100,100", 10);
-items.testNumber("testNumber", "42", "42", 10);
-items.testString("testString", "Hello", "Hello", 10);
-items.isGroupItem("testGroup");
-items.doesGroupContainMember("testGroup", "testSwitch");
+items.doesItemExist("Wohnzimmer_Licht");                            // true
+items.checkItemIsType("Werkstatt_Temperatur", "Number:Temperature"); // true (also "Number")
+items.testSwitch("Wohnzimmer_Licht", "ON", "ON", 10);               // send, wait up to 10 s, reset
+items.testDimmer("Wohnzimmer_Dimmer", 40, List.of("40", "40.0"));   // several accepted states
 
-// Thing tests
-ThingTester things = new ThingTester(client);
-things.isThingOnline("astro:sun:local");
-things.enableThing("astro:sun:local");
-things.disableThing("astro:sun:local");
-
-// Rule tests
-RuleTester rules = new RuleTester(client);
-rules.isRuleActive("my-rule-uid");
-rules.enableRule("my-rule-uid");
-rules.runRule("my-rule-uid");
-rules.testRuleExecution("my-rule-uid", "testColor", "240,100,100");
-
-// Channel tests
-ChannelTester channels = new ChannelTester(client);
-channels.isItemLinkedToChannel("testSwitch", "astro:moon:local:phase#name");
-channels.getLinksForItem("testSwitch");
-channels.hasOrphanedLinks();
-
-// Persistence tests
-PersistenceTester persistence = new PersistenceTester(client);
-persistence.isItemPersisted("rrd4j", "testSwitch");
-persistence.hasDataInRange("rrd4j", "testSwitch",
-    "2025-01-01T00:00:00.000Z", "2025-12-31T23:59:59.999Z");
-persistence.checkLastPersistedState("rrd4j", "testSwitch", "ON");
-
-// Sitemap tests
-SitemapTester sitemaps = new SitemapTester(client);
-sitemaps.doesSitemapExist("default");
-sitemaps.doesSitemapContainItem("default", "testSwitch");
+new ThingTester(client).isThingOnline("astro:sun:zuhause");
+new RuleTester(client).testRuleExecution("restbuch-2", "Wohnzimmer_Licht", "OFF");
+new PersistenceTester(client).hasDataInRange("rrd4j", "Werkstatt_Temperatur",
+        Instant.now().minus(1, ChronoUnit.DAYS), Instant.now());
+new SitemapTester(client).doesSitemapContainItem("restbuch", "Wohnzimmer_Licht");
 ```
 
-## Running the Tests
+With JUnit 5:
+
+```java
+@Test
+void lightCanBeSwitched() {
+    assertTrue(new ItemTester(client).testSwitch("Wohnzimmer_Licht", "ON", "ON", 10));
+}
+```
+
+## Reference
+
+### ItemTester
+
+| Method | Description |
+|---|---|
+| `doesItemExist(name)` | item exists |
+| `checkItemIsType(name, type)` | type matches; `"Number"` and `"Number:Temperature"` both accepted |
+| `checkItemHasState(name, state)` | current state equals `state` |
+| `isGroupItem(name)`, `getGroupMembers(group)`, `doesGroupContainMember(group, member)`, `checkGroupMemberState(group, member, state)` | groups |
+| `testSwitch`, `testDimmer`, `testColor`, `testNumber`, `testString`, `testRollershutter`, `testPlayer`, `testDateTime`, `testImage` `(name, command, [expectedState, [timeout]])` | send a command and wait for the expected state (single value or collection); without `expectedState` only send; previous state is restored |
+| `testContact`, `testLocation` `(name, update, [expectedState, [timeout]])` | the same with a state update |
+| `isValidSwitchValue(v)` … `isValidImageValue(v)` (static) | validate a command before sending |
+
+The tests open the event stream **before** sending, so even fast devices are not missed. If no
+event arrives within `timeout` (default 10 s), the current state decides. `NULL`/`UNDEF` are restored
+as state updates, not as commands.
+
+### ThingTester
+
+`getThingStatus(uid)` (`"UNKNOWN"` for unknown UIDs), `isThingStatus(uid, status)`, `isThingOnline`,
+`isThingOffline`, `isThingPending`, `isThingUnknown`, `isThingUninitialized`, `isThingError`,
+`enableThing(uid)`, `disableThing(uid)`.
+
+### RuleTester
+
+`runRule(uid, [context])`, `enableRule(uid)`, `disableRule(uid)`,
+`testRuleExecution(uid, item, expectedValue, [waitSeconds = 2])`, `isRuleActive`, `isRuleDisabled`,
+`isRuleRunning`, `isRuleIdle`, `getRuleStatus(uid)` → `{status, statusDetail, editable, name, uid}`.
+
+### ChannelTester
+
+`isItemLinkedToChannel(item, channelUID)`, `getLinksForItem(item)`, `hasOrphanedLinks()`,
+`isItemLinkedToAnyChannel(item)`.
+
+### PersistenceTester
+
+`isItemPersisted(serviceID, item)`, `hasDataInRange(serviceID, item, start, end)` (ISO 8601 strings
+or `Instant`), `checkLastPersistedState(serviceID, item, expectedState)`.
+
+### SitemapTester
+
+`doesSitemapExist(name)`, `doesSitemapContainItem(sitemap, item)`.
+
+## Changes in 2.0.0
+
+- built on java-openhab-rest-client 2.0.0 (decoded JSON, error objects); no dependency on org.json
+- behaves like openhab-test-suite 22.0.2 (Python): unknown thing UIDs give `false`/`"UNKNOWN"`, the
+  event stream is opened before the command, base types are accepted for dimension items,
+  numbers including `0` are valid Dimmer/Number/Rollershutter commands, `hasDataInRange` passes the
+  time range on, `expectedState` may be a collection
+
+## Development
 
 ```bash
-# All tests
-mvn test
-
-# Specific test class
-mvn test -Dtest=ItemTesterTest
-
-# With custom connection
-OPENHAB_URL=http://192.168.1.100:8080 OPENHAB_USER=admin OPENHAB_PASS=secret mvn test
+mvn package                                                   # validator tests
+OPENHAB_URL=http://127.0.0.1:8080 OPENHAB_TOKEN=oh.… mvn test  # plus integration tests
 ```
+
+The integration tests expect the example configuration of the book series "openHAB REST API".
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE).

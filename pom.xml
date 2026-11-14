@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.michdo93</groupId>
     <artifactId>java-openhab-test-suite</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
     <packaging>jar</packaging>
 
     <name>java-openhab-test-suite</name>
-    <description>A comprehensive testing library for validating openHAB installations – Java port of openhab-test-suite.</description>
+    <description>Tests for openHAB items, things, rules, links, persistence and sitemaps – same classes and methods as openhab-test-suite (Python). Built on java-openhab-rest-client.</description>
     <url>https://github.com/Michdo93/java-openhab-test-suite</url>
     <inceptionYear>2026</inceptionYear>
 
@@ -30,12 +29,17 @@
         </developer>
     </developers>
 
+    <scm>
+        <url>https://github.com/Michdo93/java-openhab-test-suite</url>
+        <connection>scm:git:https://github.com/Michdo93/java-openhab-test-suite.git</connection>
+    </scm>
+
     <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <!-- java-openhab-rest-client is served by JitPack -->
     <repositories>
         <repository>
             <id>jitpack.io</id>
@@ -44,25 +48,15 @@
     </repositories>
 
     <dependencies>
-        <!-- openHAB REST client – zero-dependency Java library -->
         <dependency>
             <groupId>com.github.Michdo93</groupId>
             <artifactId>java-openhab-rest-client</artifactId>
-            <version>1.0.1</version>
+            <version>2.0.0</version>
         </dependency>
-
-        <!-- JSON parsing (used internally for SSE payloads) -->
-        <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
-            <version>20240303</version>
-        </dependency>
-
-        <!-- JUnit 5 for unit tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.10.2</version>
+            <version>5.10.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -72,16 +66,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
-                <configuration>
-                    <source>11</source>
-                    <target>11</target>
-                </configuration>
+                <version>3.10.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.1.2</version>
+                <version>2.22.3</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -89,12 +84,19 @@
                 <version>3.3.0</version>
                 <configuration>
                     <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
                         <manifestEntries>
-                            <Implementation-Title>java-openhab-test-suite</Implementation-Title>
-                            <Implementation-Version>1.0.0</Implementation-Version>
+                            <Automatic-Module-Name>io.github.michdo93.openhab.testsuite</Automatic-Module-Name>
                         </manifestEntries>
                     </archive>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>3.1.1</version>
             </plugin>
         </plugins>
     </build>

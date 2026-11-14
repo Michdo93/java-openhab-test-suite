@@ -1,105 +1,61 @@
 package io.github.michdo93.openhab.testsuite;
 
+import static io.github.michdo93.openhab.testsuite.Support.asList;
+import static io.github.michdo93.openhab.testsuite.Support.asObject;
+
 import io.github.michdo93.openhab.OpenHABClient;
-import io.github.michdo93.openhab.OpenHABException;
 import io.github.michdo93.openhab.Sitemaps;
+import java.util.Collection;
+import java.util.Map;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-/**
- * Tests openHAB sitemaps: existence and item references.
- *
- * <p>Mirrors the Python {@code SitemapTester} class from {@code openhab-test-suite}.
- */
+/** Tests for sitemaps – the counterpart of {@code SitemapTester} in openhab-test-suite (Python). */
 public class SitemapTester {
 
-    private final Sitemaps sitemapsAPI;
+    private final OpenHABClient client;
+    private final Sitemaps sitemaps;
 
-    /**
-     * Creates a {@code SitemapTester} backed by the given client.
-     *
-     * @param client an authenticated {@link OpenHABClient}
-     */
     public SitemapTester(OpenHABClient client) {
-        this.sitemapsAPI = new Sitemaps(client);
+        this.client = client;
+        this.sitemaps = new Sitemaps(client);
     }
 
-    /**
-     * Checks whether a sitemap with the given name exists.
-     *
-     * @param sitemapName sitemap name
-     * @return {@code true} if the sitemap exists
-     */
     public boolean doesSitemapExist(String sitemapName) {
-        try {
-            Object raw = sitemapsAPI.getSitemaps();
-            JSONArray sitemaps = parseArray(raw);
-            for (int i = 0; i < sitemaps.length(); i++) {
-                JSONObject s = sitemaps.optJSONObject(i);
-                if (s != null && sitemapName.equals(s.optString("name"))) return true;
+        for (Object s : asList(sitemaps.getSitemaps())) {
+            if (s instanceof Map && sitemapName.equals(((Map<?, ?>) s).get("name"))) {
+                return true;
             }
-        } catch (OpenHABException e) {
-            System.err.println("Error reading sitemaps: " + e.getMessage());
         }
         return false;
     }
 
-    /**
-     * Checks whether an item is referenced anywhere inside a sitemap.
-     *
-     * @param sitemapName sitemap name
-     * @param itemName    item name to search for
-     * @return {@code true} if the item appears in the sitemap widget tree
-     */
     public boolean doesSitemapContainItem(String sitemapName, String itemName) {
-        try {
-            Object raw = sitemapsAPI.getSitemap(sitemapName);
-            JSONObject sitemap = parseObject(raw);
-            return sitemap != null && searchForItem(sitemap, itemName);
-        } catch (OpenHABException e) {
-            System.err.println("Error reading sitemap '" + sitemapName + "': " + e.getMessage());
+        return searchForItem(asObject(sitemaps.getSitemap(sitemapName)), itemName);
+    }
+
+    private boolean searchForItem(Object node, String itemName) {
+        if (node instanceof Collection) {
+            for (Object e : (Collection<?>) node) {
+                if (searchForItem(e, itemName)) {
+                    return true;
+                }
+            }
             return false;
         }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Private helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Recursively searches the sitemap widget tree for a given item name.
-     */
-    private boolean searchForItem(Object node, String itemName) {
-        if (node instanceof JSONObject) {
-            JSONObject obj = (JSONObject) node;
-            // Check the "item" sub-object directly on this widget
-            JSONObject item = obj.optJSONObject("item");
-            if (item != null && itemName.equals(item.optString("name"))) return true;
-            // Recurse into all values
-            for (String key : obj.keySet()) {
-                if (searchForItem(obj.get(key), itemName)) return true;
+        if (node instanceof Map) {
+            Object item = ((Map<?, ?>) node).get("item");
+            if (item instanceof Map && itemName.equals(((Map<?, ?>) item).get("name"))) {
+                return true;
             }
-        } else if (node instanceof JSONArray) {
-            JSONArray arr = (JSONArray) node;
-            for (int i = 0; i < arr.length(); i++) {
-                if (searchForItem(arr.get(i), itemName)) return true;
+            for (Object v : ((Map<?, ?>) node).values()) {
+                if (searchForItem(v, itemName)) {
+                    return true;
+                }
             }
         }
         return false;
     }
 
-    private static JSONObject parseObject(Object raw) {
-        if (raw == null) return null;
-        if (raw instanceof JSONObject) return (JSONObject) raw;
-        try { return new JSONObject(raw.toString()); }
-        catch (Exception e) { return null; }
-    }
-
-    private static JSONArray parseArray(Object raw) {
-        if (raw == null) return new JSONArray();
-        if (raw instanceof JSONArray) return (JSONArray) raw;
-        try { return new JSONArray(raw.toString()); }
-        catch (Exception e) { return new JSONArray(); }
+    public OpenHABClient client() {
+        return client;
     }
 }
